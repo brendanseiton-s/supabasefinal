@@ -3,10 +3,10 @@ export default function Home() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="text-center">
         {/* Title */}
-        <h1 className="text-4xl font-bold text-gray-800 mb-4">Student Portal Demo</h1>
+        <h1 className="text-4xl font-bold text-gray-800 mb-4">Student Portal</h1>
 
         {/* Description */}
-        <p className="text-lg text-gray-600 mb-8">A simple integrated web app using Supabase and Vercel.</p>
+        <p className="text-lg text-gray-600 mb-8">Simple integrated web app using Supabase and Vercel.</p>
 
         {/* Button */}
         <a href="/login">
