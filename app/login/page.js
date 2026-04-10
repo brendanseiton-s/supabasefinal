@@ -38,45 +38,47 @@ export default function Login() {
   };
 
   return (
-    <div style={{
-      textAlign: "center",
-      marginTop: "100px",
-      fontFamily: "Arial"
-    }}>
-      
-      <h1>Login / Sign Up</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Login / Sign Up</h1>
 
-      {/* Email */}
-      <input
-        type="email"
-        placeholder="Enter email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ padding: "10px", margin: "10px", width: "250px" }}
-      />
+        {/* Email */}
+        <input
+          type="email"
+          placeholder="Enter email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
 
-      {/* Password */}
-      <input
-        type="password"
-        placeholder="Enter password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ padding: "10px", margin: "10px", width: "250px" }}
-      />
+        {/* Password */}
+        <input
+          type="password"
+          placeholder="Enter password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-3 mb-6 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
 
-      <div>
-        <button onClick={handleSignUp} style={{ margin: "10px" }}>
-          Sign Up
-        </button>
+        <div className="flex space-x-4">
+          <button
+            onClick={handleSignUp}
+            className="flex-1 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition duration-200"
+          >
+            Sign Up
+          </button>
 
-        <button onClick={handleLogin} style={{ margin: "10px" }}>
-          Login
-        </button>
+          <button
+            onClick={handleLogin}
+            className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200"
+          >
+            Login
+          </button>
+        </div>
+
+        {/* Message */}
+        <p className="mt-4 text-center text-sm text-gray-600">{message}</p>
       </div>
-
-      {/* Message */}
-      <p>{message}</p>
-
     </div>
   );
 }
