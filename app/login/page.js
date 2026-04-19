@@ -42,9 +42,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Login / Sign Up</h1>
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md border border-gray-200">
+        <h1 className="text-2xl font-bold text-center mb-6 text-black">Login / Sign Up</h1>
 
         {/* Email */}
         <input
@@ -52,7 +52,7 @@ export default function Login() {
           placeholder="Enter email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
         />
 
         {/* Password */}
@@ -61,20 +61,20 @@ export default function Login() {
           placeholder="Enter password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 mb-6 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 mb-6 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
         />
 
         <div className="flex space-x-4">
           <button
             onClick={handleSignUp}
-            className="flex-1 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition duration-200"
+            className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition duration-200"
           >
             Sign Up
           </button>
 
           <button
             onClick={handleLogin}
-            className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200"
+            className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition duration-200"
           >
             Login
           </button>

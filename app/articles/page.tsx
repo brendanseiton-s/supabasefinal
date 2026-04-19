@@ -38,6 +38,7 @@ export default function Articles() {
 
   const handleLike = async (articleId: number) => {
     const article = articles.find((a) => a.id === articleId);
+    if (!article) return;
     
     setLiked((prev) => ({
       ...prev,
@@ -60,20 +61,20 @@ export default function Articles() {
     });
 
     // Send notification email when article is liked
-    if (!liked[articleId] && user?.email) {
+    if (!liked[articleId] && article.authorEmail) {
       try {
         await fetch("/api/send-notification", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userEmail: user.email,
-            articleTitle: article?.title,
+            userEmail: article.authorEmail,
+            articleTitle: article.title,
             articleId: articleId,
-            likerName: user.email.split("@")[0]
+            likerName: user?.email.split("@")[0]
           }),
         });
 
-        showNotificationMessage(`Notification email sent about "${article?.title}"`);
+        showNotificationMessage(`Notification sent to ${article.author} about your like!`);
       } catch (error) {
         console.error("Error sending notification:", error);
       }
