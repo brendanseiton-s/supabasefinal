@@ -34,6 +34,10 @@ export default function Login() {
       setMessage(error.message);
     } else {
       setMessage("Login successful!");
+      // Redirect to profile after successful login
+      setTimeout(() => {
+        window.location.href = "/profile";
+      }, 500);
     }
   };
 
