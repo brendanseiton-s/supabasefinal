@@ -178,24 +178,27 @@ export default function ArticleDetail() {
     const supabase = getSupabaseClient();
 
     try {
-      const profileResponse = await fetch('/api/ensure-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || user.email,
-        }),
-      });
+      let profile = null;
+      try {
+        const profileResponse = await fetch('/api/ensure-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.email,
+          }),
+        });
 
-      if (!profileResponse.ok) {
-        const payload = await profileResponse.json().catch(() => ({}));
-        throw new Error(payload.error || 'Unable to ensure user profile');
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          profile = profileData.profile;
+        }
+      } catch (profileError) {
+        console.error('Failed to ensure profile:', profileError);
       }
-
-      const { profile } = await profileResponse.json();
 
       const { data, error } = await supabase
         .from('comments')
@@ -258,24 +261,27 @@ export default function ArticleDetail() {
     const supabase = getSupabaseClient();
 
     try {
-      const profileResponse = await fetch('/api/ensure-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || user.email,
-        }),
-      });
+      let profile = null;
+      try {
+        const profileResponse = await fetch('/api/ensure-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.email,
+          }),
+        });
 
-      if (!profileResponse.ok) {
-        const payload = await profileResponse.json().catch(() => ({}));
-        throw new Error(payload.error || 'Unable to ensure user profile');
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          profile = profileData.profile;
+        }
+      } catch (profileError) {
+        console.error('Failed to ensure profile:', profileError);
       }
-
-      const { profile } = await profileResponse.json();
 
       const { data, error } = await supabase
         .from('comments')
@@ -307,6 +313,27 @@ export default function ArticleDetail() {
       setReplyingTo(null);
 
       showNotificationMessage("Reply posted successfully!");
+
+      // Send notification to article author
+      if (article?.authorEmail && article.authorEmail !== user.email) {
+        try {
+          await fetch('/api/send-notification', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userEmail: article.authorEmail,
+              articleTitle: article.title,
+              articleId: articleId,
+              likerName: user.user_metadata?.full_name || user.email,
+              type: 'comment'
+            }),
+          });
+        } catch (notificationError) {
+          console.error('Failed to send notification:', notificationError);
+        }
+      }
     } catch (error) {
       console.error("Error posting reply:", error);
       console.error("Reply error details:", {

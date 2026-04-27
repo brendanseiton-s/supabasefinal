@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
                 <p><strong>${authorName || 'An author'}</strong> just posted a new article:</p>
                 <h3>${articleTitle}</h3>
                 <p>Don't miss out on the latest content!</p>
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL}/articles/${articleId}"
+                <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://your-vercel-app.vercel.app'}/articles/${articleId}"
                    style="background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                   Read Article
                 </a>
