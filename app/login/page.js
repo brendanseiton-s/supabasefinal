@@ -33,10 +33,21 @@ export default function Login() {
     if (error) {
       setMessage(error.message);
     } else {
+      // Check user role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
       setMessage("Login successful!");
-      // Redirect to profile after successful login
+      // Redirect based on role
       setTimeout(() => {
-        window.location.href = "/profile";
+        if (profile?.role === 'admin') {
+          window.location.href = "/admin";
+        } else {
+          window.location.href = "/profile";
+        }
       }, 500);
     }
   };
@@ -82,6 +93,12 @@ export default function Login() {
 
         {/* Message */}
         <p className="mt-4 text-center text-sm text-gray-600">{message}</p>
+
+        <div className="text-center mt-4">
+          <a href="/admin-login" className="text-blue-600 hover:underline">
+            Admin Login
+          </a>
+        </div>
       </div>
     </div>
   );

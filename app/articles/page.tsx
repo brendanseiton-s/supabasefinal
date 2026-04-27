@@ -4,81 +4,156 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import { SAMPLE_ARTICLES } from "@/lib/articles";
+import { getArticles, getTopLikedArticles } from "@/lib/articles";
+
+interface Article {
+  id: number;
+  title: string;
+  author: string;
+  authorEmail: string;
+  date: string;
+  excerpt: string;
+  content: string;
+  likes: number;
+  image: string;
+}
 
 export default function Articles() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [articles, setArticles] = useState(SAMPLE_ARTICLES.slice(0, 5));
-  const [liked, setLiked] = useState<{ [key: number]: boolean }>({});
-  const [likes, setLikes] = useState<{ [key: number]: number }>({});
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [topArticles, setTopArticles] = useState<Article[]>([]);
+  const [likedArticles, setLikedArticles] = useState<Set<number>>(new Set());
   const [notificationMessage, setNotificationMessage] = useState("");
   const [showNotification, setShowNotification] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
+    const initializePage = async () => {
       const supabase = getSupabaseClient();
       const { data } = await supabase.auth.getUser();
-      
+
       if (!data?.user) {
         router.push("/login");
-      } else {
-        setUser(data.user);
+        return;
       }
-    };
-    getUser();
 
-    // Initialize likes from localStorage (all start at 0)
-    const savedLikes = localStorage.getItem("articleLikes");
-    const savedLikedArticles = localStorage.getItem("likedArticles");
-    
-    if (savedLikes) setLikes(JSON.parse(savedLikes));
-    if (savedLikedArticles) setLiked(JSON.parse(savedLikedArticles));
+      setUser(data.user);
+
+      // Load articles and user's likes
+      await loadArticles();
+      await loadUserLikes();
+      await loadTopArticles();
+
+      setLoading(false);
+    };
+
+    initializePage();
   }, [router]);
 
+  const loadArticles = async () => {
+    const articlesData = await getArticles();
+    setArticles(articlesData);
+  };
+
+  const loadTopArticles = async () => {
+    const topData = await getTopLikedArticles(5);
+    setTopArticles(topData);
+  };
+
+  const loadUserLikes = async () => {
+    const supabase = getSupabaseClient();
+    const { data: likesData } = await supabase
+      .from('likes')
+      .select('article_id')
+      .eq('user_id', user?.id);
+
+    const likedSet = new Set(likesData?.map(like => like.article_id) || []);
+    setLikedArticles(likedSet);
+  };
+
   const handleLike = async (articleId: number) => {
-    const article = articles.find((a) => a.id === articleId);
-    if (!article) return;
-    
-    setLiked((prev) => ({
-      ...prev,
-      [articleId]: !prev[articleId],
-    }));
+    if (!user) return;
 
-    setLikes((prev) => {
-      const newLikes = {
-        ...prev,
-        [articleId]: (prev[articleId] || 0) + (liked[articleId] ? -1 : 1),
-      };
-      localStorage.setItem("articleLikes", JSON.stringify(newLikes));
-      return newLikes;
-    });
+    const supabase = getSupabaseClient();
+    const isLiked = likedArticles.has(articleId);
 
-    // Save liked articles
-    setLiked((prev) => {
-      localStorage.setItem("likedArticles", JSON.stringify(prev));
-      return prev;
-    });
+    try {
+      if (isLiked) {
+        // Unlike
+        await supabase
+          .from('likes')
+          .delete()
+          .eq('article_id', articleId)
+          .eq('user_id', user.id);
 
-    // Send notification email when article is liked
-    if (!liked[articleId] && article.authorEmail) {
-      try {
-        await fetch("/api/send-notification", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userEmail: article.authorEmail,
-            articleTitle: article.title,
-            articleId: articleId,
-            likerName: user?.email.split("@")[0]
-          }),
+        setLikedArticles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(articleId);
+          return newSet;
         });
 
-        showNotificationMessage(`Notification sent to ${article.author} about your like!`);
-      } catch (error) {
-        console.error("Error sending notification:", error);
+        setArticles(prev => prev.map(article =>
+          article.id === articleId
+            ? { ...article, likes: article.likes - 1 }
+            : article
+        ));
+      } else {
+        // Like
+        await supabase
+          .from('likes')
+          .insert({ article_id: articleId, user_id: user.id });
+
+        setLikedArticles(prev => new Set([...prev, articleId]));
+
+        setArticles(prev => prev.map(article =>
+          article.id === articleId
+            ? { ...article, likes: article.likes + 1 }
+            : article
+        ));
+
+        // Send notification
+        const article = articles.find(a => a.id === articleId);
+        if (article) {
+          await fetch("/api/send-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userEmail: article.authorEmail,
+              articleTitle: article.title,
+              articleId: articleId,
+              likerName: user.email?.split("@")[0] || "Someone"
+            }),
+          });
+        }
       }
+    } catch (error) {
+      console.error("Error toggling like:", error);
     }
+  };
+
+  const shareArticle = async (article: Article) => {
+    const shareUrl = `${window.location.origin}/articles/${article.id}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: article.title,
+          text: article.excerpt,
+          url: shareUrl,
+        });
+      } catch (error) {
+        console.log('Error sharing:', error);
+        copyToClipboard(shareUrl, article.title);
+      }
+    } else {
+      copyToClipboard(shareUrl, article.title);
+    }
+  };
+
+  const copyToClipboard = (text: string, title: string) => {
+    navigator.clipboard.writeText(text);
+    showNotificationMessage(`Link to "${title}" copied to clipboard`);
   };
 
   const showNotificationMessage = (message: string) => {
@@ -87,14 +162,13 @@ export default function Articles() {
     setTimeout(() => setShowNotification(false), 3000);
   };
 
-  const getShareLink = (articleId: number) => {
-    return `${window.location.origin}/articles/${articleId}`;
-  };
-
-  const copyToClipboard = (text: string, articleTitle: string) => {
-    navigator.clipboard.writeText(text);
-    showNotificationMessage(`Link to "${articleTitle}" copied to clipboard`);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -152,10 +226,10 @@ export default function Articles() {
                     <div className="flex items-center gap-4 mb-5 text-sm text-gray-600">
                       <span className="font-semibold">{article.author}</span>
                       <span className="text-gray-400">•</span>
-                      <span>{new Date(article.date).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
+                      <span>{new Date(article.date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
                       })}</span>
                     </div>
 
@@ -168,16 +242,14 @@ export default function Articles() {
                     <button
                       onClick={() => handleLike(article.id)}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition duration-200 ${
-                        liked[article.id]
+                        likedArticles.has(article.id)
                           ? "bg-red-100 text-red-600 hover:bg-red-200 shadow-sm"
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                       title="Like this article"
                     >
-                      <svg className="w-5 h-5" fill={liked[article.id] ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                      <span>{likes[article.id] || article.likes}</span>
+                      <span>👍</span>
+                      <span>{article.likes}</span>
                     </button>
 
                     <Link href={`/articles/${article.id}`}>
@@ -185,12 +257,12 @@ export default function Articles() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
-                        <span>{article.comments}</span>
+                        <span>Comments</span>
                       </button>
                     </Link>
 
                     <button
-                      onClick={() => copyToClipboard(getShareLink(article.id), article.title)}
+                      onClick={() => shareArticle(article)}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200"
                       title="Copy shareable link"
                     >

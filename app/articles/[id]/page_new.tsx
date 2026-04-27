@@ -10,10 +10,10 @@ interface Comment {
   content: string;
   created_at: string;
   user_id: string;
-  profiles?: {
+  profiles: {
     email: string;
     full_name: string;
-  } | null;
+  };
   replies?: Comment[];
 }
 
@@ -125,7 +125,7 @@ export default function ArticleDetail() {
           .eq('article_id', article.id)
           .eq('user_id', user.id);
 
-        setLikedArticles((prev: Set<number>) => {
+        setLikedArticles(prev => {
           const newSet = new Set(prev);
           newSet.delete(article.id);
           return newSet;
@@ -137,38 +137,12 @@ export default function ArticleDetail() {
           .from('likes')
           .insert({ article_id: article.id, user_id: user.id });
 
-        setLikedArticles((prev: Set<number>) => new Set([...prev, article.id]));
+        setLikedArticles(prev => new Set([...prev, article.id]));
 
         setArticle((prev: any) => prev ? { ...prev, likes: prev.likes + 1 } : null);
-
-        // Send notification to article author
-        if (article?.authorEmail && article.authorEmail !== user.email) {
-          try {
-            await fetch('/api/send-notification', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                userEmail: article.authorEmail,
-                articleTitle: article.title,
-                articleId: articleId,
-                likerName: user.user_metadata?.full_name || user.email,
-                type: 'like'
-              }),
-            });
-          } catch (notificationError) {
-            console.error('Failed to send like notification:', notificationError);
-          }
-        }
       }
     } catch (error) {
       console.error("Error toggling like:", error);
-      console.error("Like error details:", {
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack,
-        name: (error as Error)?.name
-      });
     }
   };
 
@@ -178,25 +152,6 @@ export default function ArticleDetail() {
     const supabase = getSupabaseClient();
 
     try {
-      const profileResponse = await fetch('/api/ensure-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || user.email,
-        }),
-      });
-
-      if (!profileResponse.ok) {
-        const payload = await profileResponse.json().catch(() => ({}));
-        throw new Error(payload.error || 'Unable to ensure user profile');
-      }
-
-      const { profile } = await profileResponse.json();
-
       const { data, error } = await supabase
         .from('comments')
         .insert({
@@ -204,50 +159,20 @@ export default function ArticleDetail() {
           user_id: user.id,
           content: newComment.trim()
         })
-        .select()
+        .select(`
+          *,
+          profiles:user_id (email, full_name)
+        `)
         .single();
 
       if (error) throw error;
 
-      setComments(prev => [...prev, { 
-        ...data, 
-        profiles: { 
-          email: profile?.email || user.email, 
-          full_name: profile?.full_name || user.user_metadata?.full_name || user.email 
-        }, 
-        replies: [] 
-      }]);
+      setComments(prev => [...prev, { ...data, replies: [] }]);
       setNewComment("");
 
       showNotificationMessage("Comment posted successfully!");
-
-      // Send notification to article author
-      if (article?.authorEmail && article.authorEmail !== user.email) {
-        try {
-          await fetch('/api/send-notification', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userEmail: article.authorEmail,
-              articleTitle: article.title,
-              articleId: articleId,
-              likerName: user.user_metadata?.full_name || user.email,
-              type: 'comment'
-            }),
-          });
-        } catch (notificationError) {
-          console.error('Failed to send notification:', notificationError);
-        }
-      }
     } catch (error) {
       console.error("Error posting comment:", error);
-      console.error("Error details:", {
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack,
-        name: (error as Error)?.name
-      });
       showNotificationMessage("Error posting comment");
     }
   };
@@ -258,25 +183,6 @@ export default function ArticleDetail() {
     const supabase = getSupabaseClient();
 
     try {
-      const profileResponse = await fetch('/api/ensure-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || user.email,
-        }),
-      });
-
-      if (!profileResponse.ok) {
-        const payload = await profileResponse.json().catch(() => ({}));
-        throw new Error(payload.error || 'Unable to ensure user profile');
-      }
-
-      const { profile } = await profileResponse.json();
-
       const { data, error } = await supabase
         .from('comments')
         .insert({
@@ -285,7 +191,10 @@ export default function ArticleDetail() {
           parent_id: parentId,
           content: replyText.trim()
         })
-        .select()
+        .select(`
+          *,
+          profiles:user_id (email, full_name)
+        `)
         .single();
 
       if (error) throw error;
@@ -293,13 +202,7 @@ export default function ArticleDetail() {
       // Add reply to the parent comment
       setComments(prev => prev.map(comment =>
         comment.id === parentId
-          ? { ...comment, replies: [...(comment.replies || []), { 
-              ...data, 
-              profiles: { 
-                email: profile?.email || user.email, 
-                full_name: profile?.full_name || user.user_metadata?.full_name || user.email 
-              } 
-            }] }
+          ? { ...comment, replies: [...(comment.replies || []), data] }
           : comment
       ));
 
@@ -309,11 +212,6 @@ export default function ArticleDetail() {
       showNotificationMessage("Reply posted successfully!");
     } catch (error) {
       console.error("Error posting reply:", error);
-      console.error("Reply error details:", {
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack,
-        name: (error as Error)?.name
-      });
       showNotificationMessage("Error posting reply");
     }
   };
